@@ -74,10 +74,13 @@ or
 ./download_libduckdb.sh
 
 # 2. Configure and build from a Developer Command Prompt or terminal with MSVC/Ninja available
+mkdir build
+cd build
 cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release ..
 cmake --build . --config Release
 
 # 3. Install into PostgreSQL
+cd ..
 .\install_duckdb_fdw.ps1 -PostgresBase "C:\Program Files\PostgreSQL\18"
 or
 ./install_duckdb_fdw.sh
