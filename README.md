@@ -43,7 +43,7 @@ RUN_PG_DUCKDB_COEXISTENCE_CHECK=1 ./run_tests.sh --profile core
 
 ## 📦 Installation
 
-### Quick Build (Linux/macOS)
+### Quick Build (Linux/macOS) Legacy
 
 ```bash
 # Optional: prepare PostgreSQL development prerequisites on Debian/Ubuntu/WSL
@@ -55,14 +55,14 @@ scripts/verify_pg_env.sh --pg-major 17
 ./download_libduckdb.sh
 
 # Or pin a specific DuckDB release explicitly
-DUCKDB_VERSION=1.5.1 ./download_libduckdb.sh
+DUCKDB_VERSION=1.5.3 ./download_libduckdb.sh
 
 # 2. Build and Install (USE_PGXS is auto-detected)
 make
 sudo make install
 ```
 
-### Quick Build Windows (Also works for Linux)
+### Quick Build Windows (It also works for Linux)
 
 On Windows, `duckdb_fdw` can be built as a DLL with CMake and deployed into a local PostgreSQL installation with the included PowerShell helper.
 
@@ -89,23 +89,6 @@ The PowerShell installer copies:
 - `duckdb_fdw.control` and `duckdb_fdw--*.sql` into `<PostgresBase>\share\extension`
 - `duckdb.dll` into `<PostgresBase>\bin` when present
 
-### Scripted Install (Linux)
-
-If you build with CMake/Ninja instead of PGXS, use the Linux deployment helper to install the generated artifacts into the PostgreSQL extension directories resolved from `pg_config`.
-
-```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-sudo ./install_duckdb_fdw.sh
-```
-
-You can also override the target paths explicitly:
-
-```bash
-sudo ./install_duckdb_fdw.sh \
-  --pg-lib /usr/lib/postgresql/18/lib \
-  --pg-ext /usr/share/postgresql/18/extension
-```
 
 ### Requirements
 
