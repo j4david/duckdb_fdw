@@ -4,7 +4,7 @@
 [![Postgres](https://img.shields.io/badge/PostgreSQL-13--18-blue.svg)](https://www.postgresql.org/)
 [![DuckDB](https://img.shields.io/badge/DuckDB-1.x-orange.svg)](https://duckdb.org/)
 
-**`duckdb_fdw`** v2.0+ is a high-performance PostgreSQL extension that bridges PostgreSQL's ecosystem with DuckDB's vectorized analytical power. Built natively on the **DuckDB C API**, it supports modern Lakehouse workflows including Parquet, Iceberg, S3 Tables, DuckLake, MotherDuck, and the Quack client-server protocol. PostgreSQL 13-18 are supported, and the project now includes a CMake-based build path for Windows deployments.[file:1]
+**`duckdb_fdw`** v2.0+ is a high-performance PostgreSQL extension that bridges PostgreSQL's ecosystem with DuckDB's vectorized analytical power. Built natively on the **DuckDB C API**, it supports modern Lakehouse workflows including Parquet, Iceberg, S3 Tables, DuckLake, MotherDuck, and the Quack client-server protocol. PostgreSQL 13-18 are supported, and the project now includes a CMake-based build path for Windows deployments.
 
 ---
 
@@ -62,21 +62,25 @@ make
 sudo make install
 ```
 
-### Quick Build (Windows)
+### Quick Build Windows (Also works for Linux)
 
 On Windows, `duckdb_fdw` can be built as a DLL with CMake and deployed into a local PostgreSQL installation with the included PowerShell helper.
 
 ```powershell
 # 1. Download DuckDB headers and library
 # Run this from Git Bash, MSYS2, or WSL
+.\download_libduckdb.ps1
+or
 ./download_libduckdb.sh
 
 # 2. Configure and build from a Developer Command Prompt or terminal with MSVC/Ninja available
-cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
+cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release ..
+cmake --build . --config Release
 
 # 3. Install into PostgreSQL
 .\install_duckdb_fdw.ps1 -PostgresBase "C:\Program Files\PostgreSQL\18"
+or
+./install_duckdb_fdw.sh
 ```
 
 The PowerShell installer copies:
@@ -121,7 +125,7 @@ FOREIGN DATA WRAPPER duckdb_fdw
 OPTIONS (database '/tmp/duckdb_fdw_demo.db');
 ```
 
-`database ':memory:'` is a connection-scoped temporary database. `duckdb_fdw` refreshes cached connections at transaction end, so if you create tables or views with `duckdb_execute(...)` and then read them through foreign tables in later SQL statements, use a file-backed DuckDB database by default. If you intentionally want `:memory:`, wrap the entire modeling and query sequence in the same explicit transaction.[file:1]
+`database ':memory:'` is a connection-scoped temporary database. `duckdb_fdw` refreshes cached connections at transaction end, so if you create tables or views with `duckdb_execute(...)` and then read them through foreign tables in later SQL statements, use a file-backed DuckDB database by default. If you intentionally want `:memory:`, wrap the entire modeling and query sequence in the same explicit transaction.
 
 ### 2. `pg_duckdb` Coexistence Policy
 
@@ -147,7 +151,7 @@ LOAD 'duckdb_fdw';
 SET duckdb_fdw.allow_unsupported_pg_duckdb_coexistence = on;
 ```
 
-This override is explicitly outside the supported public contract. It is off by default, does not allow preload placeholders, and cannot be hidden inside a transaction with `SET LOCAL`.[file:1]
+This override is explicitly outside the supported public contract. It is off by default, does not allow preload placeholders, and cannot be hidden inside a transaction with `SET LOCAL`.
 
 On Windows, the extension currently enables the unsupported coexistence override during `_PG_init()` to simplify DLL loading scenarios. This should still be treated as platform-specific compatibility behavior rather than a supported coexistence guarantee.
 
@@ -161,7 +165,7 @@ Linux-first coexistence verification script:
 
 #### S3 (Recommended: USER MAPPING)
 
-For security, prefer storing S3 credentials in **USER MAPPING** rather than server options. `pg_foreign_server` options are public-readable by default; `USER MAPPING` credentials are only visible to the mapped user and superusers.[file:1]
+For security, prefer storing S3 credentials in **USER MAPPING** rather than server options. `pg_foreign_server` options are public-readable by default; `USER MAPPING` credentials are only visible to the mapped user and superusers.
 
 ```sql
 CREATE SERVER s3_srv FOREIGN DATA WRAPPER duckdb_fdw
@@ -245,7 +249,7 @@ CREATE SCHEMA remote_tpch;
 IMPORT FOREIGN SCHEMA "tpch" FROM SERVER s3_srv INTO remote_tpch;
 ```
 
-**DuckLake** catalogs (`type=ducklake`) are auto-detected. Just point `attach_catalogs` at a DuckLake URL and `duckdb_fdw` automatically loads the Iceberg extension.[file:1]
+**DuckLake** catalogs (`type=ducklake`) are auto-detected. Just point `attach_catalogs` at a DuckLake URL and `duckdb_fdw` automatically loads the Iceberg extension.
 
 ```sql
 CREATE SERVER ducklake_srv FOREIGN DATA WRAPPER duckdb_fdw OPTIONS (
@@ -258,7 +262,7 @@ IMPORT FOREIGN SCHEMA "tpch" FROM SERVER ducklake_srv INTO public;
 
 ### 6. High-Speed S3 Tables (Lakehouse)
 
-`duckdb_fdw` v2.0+ handles **AWS S3 Tables** with zero configuration. It automatically detects `arn:aws:s3tables` URIs and injects the required `sigv4` authorization.[file:1]
+`duckdb_fdw` v2.0+ handles **AWS S3 Tables** with zero configuration. It automatically detects `arn:aws:s3tables` URIs and injects the required `sigv4` authorization.
 
 ```sql
 CREATE SERVER lakehouse_srv FOREIGN DATA WRAPPER duckdb_fdw OPTIONS (
@@ -275,7 +279,7 @@ SELECT * FROM part WHERE p_partkey = 1;
 
 > Requires: DuckDB >= 1.1 with `motherduck` extension available.
 
-Set your MotherDuck token in **USER MAPPING** (recommended for security) or server options. The extension is auto-installed and a MotherDuck SECRET is created automatically on connection.[file:1]
+Set your MotherDuck token in **USER MAPPING** (recommended for security) or server options. The extension is auto-installed and a MotherDuck SECRET is created automatically on connection.
 
 ```sql
 CREATE SERVER md_srv FOREIGN DATA WRAPPER duckdb_fdw
@@ -294,7 +298,7 @@ IMPORT FOREIGN SCHEMA "my_md" FROM SERVER md_srv INTO public;
 SELECT duckdb_execute('md_srv', 'CREATE TABLE my_md.my_table AS SELECT 42 AS answer');
 ```
 
-You can also reference MotherDuck databases via `attach_catalogs`:[file:1]
+You can also reference MotherDuck databases via `attach_catalogs`:
 
 ```sql
 CREATE SERVER md_catalog_srv FOREIGN DATA WRAPPER duckdb_fdw OPTIONS (
@@ -310,7 +314,7 @@ IMPORT FOREIGN SCHEMA "my_db" FROM SERVER md_catalog_srv INTO public;
 
 > Requires: DuckDB >= 1.5.2 with `quack` extension available. See [Quack documentation](https://duckdb.org/quack/).
 
-Quack is DuckDB's native client-server protocol. `duckdb_fdw` supports it in two modes.[file:1]
+Quack is DuckDB's native client-server protocol. `duckdb_fdw` supports it in two modes.
 
 #### Start the Quack Server
 
@@ -318,11 +322,11 @@ Quack is DuckDB's native client-server protocol. `duckdb_fdw` supports it in two
 duckdb /path/to/shared.db -cmd "LOAD quack; SELECT * FROM quack_serve('quack://0.0.0.0:9494', token := 'shared_secret', allow_other_hostname := true);"
 ```
 
-> **Prerequisite**: The PostgreSQL process needs a writable DuckDB home directory (`$HOME/.duckdb/`) to cache extensions. If you see `Can't find the home directory at ''`, either set `HOME` in the PG service (`systemctl edit postgresql` → `Environment=HOME=/var/lib/postgresql`) or use Manual Mode with a pre-created database file.[file:1]
+> **Prerequisite**: The PostgreSQL process needs a writable DuckDB home directory (`$HOME/.duckdb/`) to cache extensions. If you see `Can't find the home directory at ''`, either set `HOME` in the PG service (`systemctl edit postgresql` → `Environment=HOME=/var/lib/postgresql`) or use Manual Mode with a pre-created database file.
 
 #### Native Proxy Mode (Recommended)
 
-Set `quack_host` in the server options. `duckdb_fdw` automatically opens a local in-memory DuckDB, loads the Quack extension, creates a Quack SECRET, and `ATTACH`es the remote server. All foreign tables are created as `remote.schema.table`, so queries are transparently routed to the Quack server.[file:1]
+Set `quack_host` in the server options. `duckdb_fdw` automatically opens a local in-memory DuckDB, loads the Quack extension, creates a Quack SECRET, and `ATTACH`es the remote server. All foreign tables are created as `remote.schema.table`, so queries are transparently routed to the Quack server.
 
 ```sql
 CREATE SERVER quack_srv FOREIGN DATA WRAPPER duckdb_fdw
@@ -336,7 +340,7 @@ SELECT * FROM orders WHERE amount > 1000;
 INSERT INTO orders VALUES (1, 99.9, '2026-05-29');
 ```
 
-This mode solves the classic DuckDB concurrency problem: **multiple PG backends can concurrently read and write the same DuckDB database** through a single Quack server process. All PG clients share one `.duckdb` file without lock conflicts.[file:1]
+This mode solves the classic DuckDB concurrency problem: **multiple PG backends can concurrently read and write the same DuckDB database** through a single Quack server process. All PG clients share one `.duckdb` file without lock conflicts.
 
 You can additionally disable TLS in Quack proxy mode when the deployment environment requires it:
 
@@ -352,7 +356,7 @@ OPTIONS (
 
 #### Manual Mode
 
-For more control, use `duckdb_execute` to manage the Quack connection yourself. This mode also works around the home directory issue on machines where the PG process cannot set `HOME`.[file:1]
+For more control, use `duckdb_execute` to manage the Quack connection yourself. This mode also works around the home directory issue on machines where the PG process cannot set `HOME`.
 
 ```sql
 CREATE SERVER quack_srv FOREIGN DATA WRAPPER duckdb_fdw
@@ -366,14 +370,14 @@ SELECT duckdb_execute('quack_srv',
 
 ### 9. Arbitrary DuckDB SQL
 
-The `duckdb_execute()` function lets you run any DuckDB SQL through the FDW connection, which is useful for DDL, extension management, or one-off operations.[file:1]
+The `duckdb_execute()` function lets you run any DuckDB SQL through the FDW connection, which is useful for DDL, extension management, or one-off operations.
 
 ```sql
 SELECT duckdb_execute('duckdb_srv', 'CREATE TABLE tmp AS SELECT range AS id FROM range(1000)');
 SELECT duckdb_execute('duckdb_srv', 'INSTALL spatial; LOAD spatial;');
 ```
 
-Result messages containing credentials (`SECRET`, `KEY_ID`, `ACCESS_KEY`, `TOKEN`, `motherduck`) are automatically redacted in error output for security.[file:1]
+Result messages containing credentials (`SECRET`, `KEY_ID`, `ACCESS_KEY`, `TOKEN`, `motherduck`) are automatically redacted in error output for security.
 
 ## 📉 Feature Comparison
 
@@ -400,17 +404,17 @@ Result messages containing credentials (`SECRET`, `KEY_ID`, `ACCESS_KEY`, `TOKEN
 | **Codebase** | ~6,500 lines C | ~81,000 lines C++ |
 | **Can they coexist?** | Not in the same backend on Linux; Windows behavior is compatibility-oriented but unsupported | — |
 
-**They solve different problems.** `pg_duckdb` asks "how can DuckDB make PostgreSQL faster?" `duckdb_fdw` asks "how can PostgreSQL users access everything DuckDB can read?" If you need both, run them on separate PG instances.[file:1]
+**They solve different problems.** `pg_duckdb` asks "how can DuckDB make PostgreSQL faster?" `duckdb_fdw` asks "how can PostgreSQL users access everything DuckDB can read?" If you need both, run them on separate PG instances.
 
 ## 🤝 Contributing
 
-Contributions are welcome. Current high-priority areas are production hardening, deterministic regression coverage, improved Windows CI validation, and eventually a true Arrow C Data read path.[file:1]
+Contributions are welcome. Current high-priority areas are production hardening, deterministic regression coverage, improved Windows CI validation, and eventually a true Arrow C Data read path.
 
 ## 🔧 Troubleshooting
 
 ### "Can't find the home directory at ''" (Quack mode)
 
-DuckDB 1.5+ needs a writable `$HOME/.duckdb/` to cache extensions. The PG backend runs as the `postgres` user, which may not have `HOME` set.[file:1]
+DuckDB 1.5+ needs a writable `$HOME/.duckdb/` to cache extensions. The PG backend runs as the `postgres` user, which may not have `HOME` set.
 
 **Fix A**: Set `HOME` in the PG service:
 
@@ -420,7 +424,7 @@ sudo systemctl edit postgresql
 sudo systemctl restart postgresql
 ```
 
-**Fix B**: Use Manual Mode with a pre-created DB file (bypasses in-memory DuckDB):[file:1]
+**Fix B**: Use Manual Mode with a pre-created DB file (bypasses in-memory DuckDB):
 
 ```sql
 CREATE SERVER quack_srv FOREIGN DATA WRAPPER duckdb_fdw
@@ -429,7 +433,7 @@ OPTIONS (database '/tmp/quack_fdw.db', extensions 'quack');
 
 ### Compilation error: "implicit declaration of function 'GetUserId'" (PG 17)
 
-PostgreSQL 17 requires explicit `#include "miscadmin.h"` for `GetUserId()`. This is fixed in the main branch, so ensure the checkout includes the PG17 compatibility fix already present upstream.[file:1]
+PostgreSQL 17 requires explicit `#include "miscadmin.h"` for `GetUserId()`. This is fixed in the main branch, so ensure the checkout includes the PG17 compatibility fix already present upstream.
 
 ### PostgreSQL 18 build errors around `create_foreignscan_path`
 
